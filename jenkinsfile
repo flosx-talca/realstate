@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    environment {
+        NODE_VERSION = '20.10.0' // versión por defecto
+    }
+
+    options {
+        skipStagesAfterUnstable()
+    }
+
+    parameters {
+        choice(name: 'NODE_VERSION', choices: ['20.10.0', '22.0.0'], description: 'Versión de Node.js para ejecutar las pruebas')
+    }
+
+    stages {
+        stage('Checkout del código') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Instalar Node.js') {
+            steps {
+                script {
+                    def nodeTool = tool name: "node-${params.NODE_VERSION}", type: 'NodeJSInstallation'
+                    env.PATH = "${nodeTool}/bin:${env.PATH}"
+                }
+            }
+        }
+
+        stage('Instalar dependencias') {
+            steps {
+                sh 'npm ci'
+            }
+        }
+
+        stage('Ejecutar pruebas') {
+            steps {
+                sh 'npm test'
+            }
+        }
+
+        stage('Resultado') {
+            steps {
+                script {
+                    if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                        echo "✅ API funcional en Node ${params.NODE_VERSION}"
+                    } else {
+                        echo "❌ Falla detectada en los tests para Node ${params.NODE_VERSION}"
+                    }
+                }
+            }
+        }
+    }
+}
